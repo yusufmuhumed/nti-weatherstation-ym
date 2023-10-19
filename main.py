@@ -1,15 +1,17 @@
 import mysql.connector
-from Adafruit_CircuitPython_SGP30 import Adafruit_SGP30
-import Adafruit_DHT
+from scd30_i2c import SCD30
 import time
 from datetime import datetime
 
 # Initialize the SGP30 sensor
-sgp30 = Adafruit_SGP30()
+gassensor = SCD30()
 
-# Initialize the DHT11 sensor
-dht_pin = 4  # GPIO pin where the DHT11 sensor is connected
-dht_sensor = Adafruit_DHT.DHT11
+#scd30.set_measurement_interval(2)
+#scd30.start_periodic_measurement()
+
+time.sleep(2)
+
+
 
 # Initialize the MySQL database connection
 db = mysql.connector.connect(
@@ -21,23 +23,23 @@ db = mysql.connector.connect(
 cursor = db.cursor()
 
 try:
-    # Initialize the SGP30 sensor
-    sgp30.begin()
+    
 
     while True:
-        # Read data from the SGP30 sensor
-        eCO2, TVOC = sgp30.read_measurements()
+        if gassensor.get_data_ready():
+            # Read data from the SGP30 sensor
+            co2, temperature, humidity = gassensor.read_measurement()
 
-        # Read data from the DHT11 sensor
-        humidity, temperature = Adafruit_DHT.read_retry(dht_sensor, dht_pin)
+    
+        
 
         # Get the current timestamp
         timestamp = datetime.now()
 
         # Insert data into the database
-        sql = "INSERT INTO SensorReadings (sensor_id, value, timestamp, date) VALUES (%s, %s, %s, %s)"
-        cursor.execute(sql, (1, eCO2, timestamp, timestamp.date()))
-        cursor.execute(sql, (2, TVOC, timestamp, timestamp.date()))
+        sql = "INSERT INTO SensorReadings (sensor_id, value, timestamp, date) VALUES (%s, %s, %s)"
+        cursor.execute(sql, (1, co2, timestamp, timestamp.date()))
+       
         cursor.execute(sql, (3, temperature, timestamp, timestamp.date()))
         cursor.execute(sql, (4, humidity, timestamp, timestamp.date()))
 
@@ -45,7 +47,7 @@ try:
         db.commit()
 
         # Print the data (for testing)
-        print(f"eCO2: {eCO2} ppm, TVOC: {TVOC} ppb, Temperature: {temperature}°C, Humidity: {humidity}%")
+        print(f"eCO2: {co2} ppm, Temperature: {temperature}°C, Humidity: {humidity}%")
 
         # Wait for a while before taking the next reading
         time.sleep(300)  # 5 minutes
